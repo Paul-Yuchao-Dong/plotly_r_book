@@ -1,0 +1,158 @@
+---
+title: "Introduction"
+output: 
+  html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plotly)
+```
+```{r}
+plot_ly(diamonds, x = ~cut, color = ~clarity, colors = "Accent")
+```
+```{r}
+plot_ly(diamonds, x = ~cut)
+```
+
+```{r}
+plot_ly(diamonds, x = ~cut, y = ~clarity)
+```
+```{r}
+plot_ly(diamonds, x = ~cut, color = "black")
+```
+So `color = "black"` wouldn't work
+```{r}
+plot_ly(diamonds, x = ~cut, color = I("black"), stroke = I("red"), span = I(2))
+```
+Use pipe
+```{r}
+diamonds %>% 
+  plot_ly(x = ~cut) %>% 
+  layout(title = "Beautiful Histogram")
+```
+```{r}
+diamonds %>% 
+  plot_ly() %>% 
+  add_histogram(x = ~cut)
+```
+```{r}
+diamonds %>% 
+  dplyr::count(cut) %>% 
+  plot_ly() %>% 
+  add_bars(x = ~cut, y = ~n)
+```
+
+use dplyr with plotly to manipulate its underlying data
+```{r}
+diamonds %>% 
+  plot_ly(x  = ~cut) %>% 
+  add_histogram() %>% 
+  group_by(cut) %>% 
+  summarise(n=n()) %>% 
+  add_text(
+    text = ~scales::comma(n), y = ~n,
+    textposition = "top middle",
+    cliponaxis = FALSE
+  )
+```
+
+```{r}
+p <- plot_ly(diamonds, x = ~cut, color = ~clarity, colors = "Accent")
+plotly_json(p)
+```
+```{r}
+b <- plotly_build(p)
+```
+
+```{r}
+length(b$x$data)
+```
+
+```{r}
+purrr::map_chr(b$x$data, "name")
+```
+
+```{r}
+purrr::map_chr(b$x$data,"type")
+```
+```{r}
+diamonds %>% 
+  ggplot(aes(x=clarity, y = log(price), color = clarity)) +
+  ggforce::geom_sina(alpha=0.1)+
+  facet_wrap(~cut)
+```
+```{r}
+p <- ggplot(diamonds, aes(x = clarity, y = log(price), color = clarity)) +
+    ggforce::geom_sina(alpha = 0.1) + 
+    stat_summary(fun.data = "mean_cl_boot", color = "black") +
+    facet_wrap(~cut)
+
+# WebGL is a lot more efficient at rendering lots of points
+# toWebGL(ggplotly(p))
+p %>% ggplotly() 
+```
+```{r}
+m <- lm(log(price) ~ log(carat), diamonds)
+diamonds <- modelr::add_residuals(diamonds, m)
+ggplot(diamonds, aes(x = clarity, y = resid, color = clarity))+
+  ggforce::geom_sina(alpha=0.1)+
+  stat_summary(fun.data = "mean_cl_boot", color = "black")+
+  facet_wrap(~cut)
+```
+```{r}
+m <- lm(log(price) ~ log(carat) + cut, diamonds)
+gg <- GGally::ggcoef(m)
+ggplotly(gg, dynamicTicks = TRUE)
+```
+```{r}
+library(naniar)
+```
+
+```{r}
+diamonds$price_miss <- ifelse(diamonds$depth>60, diamonds$price, NA)
+diamonds %>% 
+  ggplot(aes(clarity, log(price_miss)))+
+  geom_miss_point(alpha=0.1)+
+  stat_summary(fun.data = "mean_cl_boot", color = "black")+
+  facet_wrap(~cut)
+  
+```
+```{r}
+p <- (mtcars %>% 
+  ggplot(aes(wt, mpg, text = row.names(mtcars)))+
+  geom_point())
+ggplotly(p, tooltip = "text")
+```
+
+```{r}
+library(withr)
+p <- ggplot(faithfuld, aes(waiting, eruptions))+geom_raster(aes(fill=density))
+subplot(
+  with_options(list(digits=1, scipen=15), ggplotly(p)),
+  with_options(list(digits=6, scipen=20), ggplotly(p))
+)
+```
+```{r}
+library(scales)
+```
+```{r}
+p <- (txhousing %>% 
+  ggplot(aes(date, median))+
+  geom_line(aes(group=city, text = paste("median", number_si(median)))))
+
+ggplotly(p, tooltip = c("text", "x", "city"))
+```
+```{r}
+w <- ggplotly(p+geom_smooth(se = FALSE))
+
+text_y <- number_si(
+  w$x$data[[2]]$y,
+  prefix = "Typical median house price: $"
+)
+
+w %>% 
+  style(hoverinfo = "skip", traces = 1) %>% 
+  style(text = text_y, traces = 2)
+```
+
